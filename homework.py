@@ -47,7 +47,7 @@ def get_api_answer(current_timestamp):
     }
     # Делаем GET-запрос к url с заголовками headers и параметрами params
     homework_status = requests.get(**data)
-    if homework_status.status_code != HTTPStatus.OK: 
+    if homework_status.status_code != HTTPStatus.OK:
         raise exceptions.APIStatusCodeError(
             'Неверный ответ сервера: '
             f'http code = {homework_status.status_code}; '
@@ -68,8 +68,8 @@ def check_response(
             f'response = {response}'
         )
     if (
-        response.get('homeworks') is None or
-        response.get('current_date') is None
+        response.get('homeworks') is None
+        or response.get('current_date') is None
     ):
         raise KeyError(
             'В ответе API отсутствуют необходимые ключи "homeworks" и/или '
@@ -141,9 +141,9 @@ def main() -> None:
                     )
                 else:
                     logging.info(
-                       f'Сообщение {message} '
-                       f'пользователю {TELEGRAM_CHAT_ID} '
-                       f'успешно отправлено.'
+                        f'Сообщение {message} '
+                        f'пользователю {TELEGRAM_CHAT_ID} '
+                        f'успешно отправлено.'
                     )
             current_timestamp = response['current_date']
             time.sleep(RETRY_TIME)
