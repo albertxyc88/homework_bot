@@ -88,7 +88,7 @@ def check_response(
     return response['homeworks']
 
 
-def parse_status(homework: dict[str, Union[int, str]]) -> str:
+def parse_status(homework: Dict[str, Union[int, str]]) -> str:
     """Проверяем статус домашнего задания."""
     homework_name = homework['homework_name']
     homework_status = homework['status']
