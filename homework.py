@@ -31,12 +31,12 @@ HOMEWORK_STATUSES = {
 
 
 def send_message(bot, message: str):
-    """DOCSTRING."""
+    """Функция отправки сообщения через Telegram."""
     return bot.send_message(TELEGRAM_CHAT_ID, message)
 
 
-def get_api_answer(current_timestamp):
-    """DOCSTRING."""
+def get_api_answer(current_timestamp: int):
+    """Получаем ответ от API."""
     timestamp = current_timestamp or int(time.time())
     data = {
         'url': ENDPOINT,
@@ -88,8 +88,8 @@ def check_response(
     return response['homeworks']
 
 
-def parse_status(homework):
-    """DOCSTRING."""
+def parse_status(homework: dict[str, Union[int, str]]) -> str:
+    """Проверяем статус домашнего задания."""
     homework_name = homework['homework_name']
     homework_status = homework['status']
     try:
