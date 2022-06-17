@@ -70,7 +70,7 @@ def check_response(response):
         response.get('homeworks') is None
         or response.get('current_date') is None
     ):
-        raise KeyError(
+        raise exceptions.NoTokens(
             'В ответе API отсутствуют необходимые ключи "homeworks" и/или '
             '"current_date".'
         )
@@ -81,7 +81,8 @@ def check_response(response):
         )
     logging.info('Проверка ответа от API завершена.')
     if len(response.get('homeworks')) == 0:
-        raise IndexError('Список работ пустой')
+        logging.info('Список работ пустой или работу еще не взяли на проверку')
+        return []
     else:
         return response['homeworks']
 
@@ -110,7 +111,7 @@ def check_tokens() -> bool:
 
 def main() -> None:
     """Основная функция работы бота."""
-    global error_message
+    global previous_error
     # Проверяем наличие всех обязательных параметров.
     if not check_tokens():
         error_message = (
@@ -131,7 +132,7 @@ def main() -> None:
                 message = parse_status(work)
                 try:
                     send_message(bot, message)
-                except telegram.error.TelegramError as error:
+                except exceptions.TelegramError as error:
                     logging.error(
                         f'Не удалось отправить сообщение {message} '
                         f'пользователю {TELEGRAM_CHAT_ID}. '
@@ -149,9 +150,9 @@ def main() -> None:
         except Exception as error:
             message = 'Сбой в работе программы: ', error
             logging.error(message)
-            if message != error_message:
+            if message != previous_error:
                 send_message(bot, message)
-                error_message = message
+                previous_error = message
             time.sleep(RETRY_TIME)
 
 

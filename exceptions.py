@@ -6,10 +6,6 @@ class NoTokens(Exception):
     pass
 
 
-class ConnectionError(Exception):
-    pass
-
-
 class APIStatusCodeError(Exception):
     pass
 
