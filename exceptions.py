@@ -1,10 +1,18 @@
-class APIResponseError(Exception):
+class HomeWorkStatus(Exception):
     pass
 
 
-class SomethingWentWrong(Exception):
+class NoTokens(Exception):
+    pass
+
+
+class ConnectionError(Exception):
     pass
 
 
 class APIStatusCodeError(Exception):
+    pass
+
+
+class TelegramError(Exception):
     pass

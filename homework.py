@@ -1,10 +1,9 @@
-
+"""Бот проверяющий статусы домашнего задания с отправкой в Telegram."""
 import logging
 import os
 import sys
 import time
 from http import HTTPStatus
-from typing import Dict, List, Union
 
 import requests
 import telegram
@@ -22,6 +21,7 @@ RETRY_TIME = 600
 ENDPOINT = 'https://practicum.yandex.ru/api/user_api/homework_statuses/'
 HEADERS = {'Authorization': f'OAuth {PRACTICUM_TOKEN}'}
 
+previous_error = None
 
 HOMEWORK_STATUSES = {
     'approved': 'Работа проверена: ревьюеру всё понравилось. Ура!',
@@ -30,12 +30,12 @@ HOMEWORK_STATUSES = {
 }
 
 
-def send_message(bot, message: str):
+def send_message(bot, message):
     """Функция отправки сообщения через Telegram."""
     return bot.send_message(TELEGRAM_CHAT_ID, message)
 
 
-def get_api_answer(current_timestamp: int):
+def get_api_answer(current_timestamp):
     """Получаем ответ от API."""
     timestamp = current_timestamp or int(time.time())
     data = {
@@ -48,18 +48,17 @@ def get_api_answer(current_timestamp: int):
     # Делаем GET-запрос к url с заголовками headers и параметрами params
     homework_status = requests.get(**data)
     if homework_status.status_code != HTTPStatus.OK:
-        raise exceptions.APIStatusCodeError(
+        message = (
             'Неверный ответ сервера: '
             f'http code = {homework_status.status_code}; '
             f'reason = {homework_status.reason}; '
             f'content = {homework_status.text}'
         )
+        raise exceptions.APIStatusCodeError(message)
     return homework_status.json()
 
 
-def check_response(
-    response: Dict[str, List[Dict[str, Union[int, str]]]]
-) -> Dict[str, Union[int, str]]:
+def check_response(response):
     """Проверяет наличие всех ключей в ответе API practicum."""
     logging.info('Начинаем проверку ответа от API.')
     if not isinstance(response, dict):
@@ -80,22 +79,21 @@ def check_response(
             'В ответе API в ключе "homeworks" нет списка: '
             f'response = {response.get("homeworks")}'
         )
-
-    if not response.get('homeworks'):
-        logging.debug('Статус проверки не изменился')
-        return []
     logging.info('Проверка ответа от API завершена.')
-    return response['homeworks']
+    if len(response.get('homeworks')) == 0:
+        raise IndexError('Список работ пустой')
+    else:
+        return response['homeworks']
 
 
-def parse_status(homework: Dict[str, Union[int, str]]) -> str:
+def parse_status(homework):
     """Проверяем статус домашнего задания."""
     homework_name = homework['homework_name']
     homework_status = homework['status']
     try:
         verdict = HOMEWORK_STATUSES[homework_status]
     except Exception as error:
-        raise exceptions.SomethingWentWrong(f'{error}')
+        raise exceptions.HomeWorkStatus(f'{error}')
     return f'Изменился статус проверки работы "{homework_name}". {verdict}'
 
 
@@ -112,6 +110,7 @@ def check_tokens() -> bool:
 
 def main() -> None:
     """Основная функция работы бота."""
+    global error_message
     # Проверяем наличие всех обязательных параметров.
     if not check_tokens():
         error_message = (
@@ -121,10 +120,9 @@ def main() -> None:
         )
         logging.critical(error_message)
         sys.exit(error_message)
-
-    logging.info('Запуск бота')
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
-    current_timestamp = '0'  # int(time.time())
+    logging.info('Запуск бота')
+    current_timestamp = int(time.time())
     while True:
         try:
             response = get_api_answer(current_timestamp)
@@ -151,10 +149,10 @@ def main() -> None:
         except Exception as error:
             message = 'Сбой в работе программы: ', error
             logging.error(message)
-            send_message(bot, message)
+            if message != error_message:
+                send_message(bot, message)
+                error_message = message
             time.sleep(RETRY_TIME)
-        else:
-            pass
 
 
 if __name__ == '__main__':
