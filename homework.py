@@ -33,7 +33,23 @@ HOMEWORK_VERDICTS = {
 def send_message(bot, message):
     """Функция отправки сообщения через Telegram."""
     logging.info('Отправляем сообщение в Telegram.')
-    return bot.send_message(TELEGRAM_CHAT_ID, message)
+    try:
+        bot.send_message(TELEGRAM_CHAT_ID, message)
+    except Exception as error:
+        logging.error(
+            f'Не удалось отправить сообщение {message} '
+            f'пользователю {TELEGRAM_CHAT_ID}. '
+            f'Ошибка: {error}'
+        )
+        raise telegram.error.TelegramError(
+            f'Ошибка при отправке сообщения в Telegram: {error}'
+        )
+    else:
+        logging.info(
+            f'Сообщение {message} '
+            f'пользователю {TELEGRAM_CHAT_ID} '
+            f'успешно отправлено.'
+        )
 
 
 def get_api_answer(current_timestamp):
@@ -47,11 +63,11 @@ def get_api_answer(current_timestamp):
         },
     }
     # Делаем GET-запрос к url с заголовками headers и параметрами params
+    logging.info('Делаем запрос к API.')
     try:
-        logging.info('Делаем запрос к API.')
         homework_status = requests.get(**data)
-    except Exception as exc:
-        raise exceptions.ConnectionError(f'Ошибка подключения к API: {exc}')
+    except Exception as error:
+        raise exceptions.ConnectionError(f'Ошибка подключения к API: {error}')
 
     if homework_status.status_code != HTTPStatus.OK:
         message = (
@@ -145,23 +161,7 @@ def main() -> None:
             homeworks = check_response(response)
             for work in homeworks:
                 message = parse_status(work)
-                try:
-                    send_message(bot, message)
-                except Exception as error:
-                    logging.error(
-                        f'Не удалось отправить сообщение {message} '
-                        f'пользователю {TELEGRAM_CHAT_ID}. '
-                        f'Ошибка: {error}'
-                    )
-                    raise telegram.error.TelegramError(
-                        f'Ошибка при отправке сообщения в Telegram: {error}'
-                    )
-                else:
-                    logging.info(
-                        f'Сообщение {message} '
-                        f'пользователю {TELEGRAM_CHAT_ID} '
-                        f'успешно отправлено.'
-                    )
+            send_message(bot, message)
             current_timestamp = response['current_date']
 
         except Exception as error:
