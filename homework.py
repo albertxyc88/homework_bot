@@ -96,19 +96,19 @@ def check_response(response):
 def parse_status(homework):
     """Проверяем статус домашнего задания."""
     logging.info('Начинаем проверку статуса домашнего задания.')
-    if homework.get('homework_name') is None:
+    if homework['homework_name'] is None:
         raise exceptions.NoDictKey(
             'В ответе API отсутствует необходимый ключ "homework_name"!'
         )
     else:
         homework_name = homework['homework_name']
-    if homework.get('status') is None:
+    if homework['status'] is None:
         raise exceptions.NoDictKey(
             'В ответе API отсутствует необходимый ключ "status"!'
         )
     else:
         homework_status = homework['status']
-    if HOMEWORK_VERDICTS.get(homework_status) is None:
+    if HOMEWORK_VERDICTS[homework_status] is None:
         raise exceptions.NoDictKey(
             f'В словаре "HOMEWORK_VERDICTS" не найден ключ {homework_status}!'
         )
@@ -120,11 +120,8 @@ def parse_status(homework):
 
 def check_tokens() -> bool:
     """Проверяем наличие всех необходимых переменных окружения."""
-    return all(
-        PRACTICUM_TOKEN,
-        TELEGRAM_TOKEN,
-        TELEGRAM_CHAT_ID
-    )
+    tokens = [PRACTICUM_TOKEN, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID]
+    return all(tokens)
 
 
 def main() -> None:
