@@ -17,13 +17,13 @@ PRACTICUM_TOKEN = os.getenv('PRACTICUM_TOKEN')
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
 TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 
-RETRY_TIME = 600
+RETRY_TIME = 10
 ENDPOINT = 'https://practicum.yandex.ru/api/user_api/homework_statuses/'
 HEADERS = {'Authorization': f'OAuth {PRACTICUM_TOKEN}'}
 
 previous_error = None
 
-HOMEWORK_STATUSES = {
+HOMEWORK_VERDICTS = {
     'approved': 'Работа проверена: ревьюеру всё понравилось. Ура!',
     'reviewing': 'Работа взята на проверку ревьюером.',
     'rejected': 'Работа проверена: у ревьюера есть замечания.'
@@ -32,6 +32,7 @@ HOMEWORK_STATUSES = {
 
 def send_message(bot, message):
     """Функция отправки сообщения через Telegram."""
+    logging.info('Отправляем сообщение в Telegram.')
     return bot.send_message(TELEGRAM_CHAT_ID, message)
 
 
@@ -46,15 +47,22 @@ def get_api_answer(current_timestamp):
         },
     }
     # Делаем GET-запрос к url с заголовками headers и параметрами params
-    homework_status = requests.get(**data)
+    try:
+        logging.info('Делаем запрос к API.')
+        homework_status = requests.get(**data)
+    except Exception as exc:
+        raise exceptions.ConnectionError(f'Ошибка подключения к API: {exc}')
+
     if homework_status.status_code != HTTPStatus.OK:
         message = (
-            'Неверный ответ сервера: '
+            f'При отправке запроса к API с параметрами: {data}'
+            'пришел неверный ответ от сервера: '
             f'http code = {homework_status.status_code}; '
             f'reason = {homework_status.reason}; '
             f'content = {homework_status.text}'
         )
         raise exceptions.APIStatusCodeError(message)
+    logging.info('Запрос к API завершен.')
     return homework_status.json()
 
 
@@ -66,13 +74,13 @@ def check_response(response):
             'В ответе от API нет словаря: '
             f'response = {response}'
         )
-    if (
-        response.get('homeworks') is None
-        or response.get('current_date') is None
-    ):
-        raise exceptions.NoTokens(
-            'В ответе API отсутствуют необходимые ключи "homeworks" и/или '
-            '"current_date".'
+    if response.get('homeworks') is None:
+        raise exceptions.NoDictKey(
+            'В ответе API отсутствует необходимый ключ "homeworks"!'
+        )
+    if response.get('current_date') is None:
+        raise exceptions.NoDictKey(
+            'В ответе API отсутствует необходимый ключ "current_date"!'
         )
     if not isinstance(response.get('homeworks'), list):
         raise TypeError(
@@ -82,30 +90,40 @@ def check_response(response):
     logging.info('Проверка ответа от API завершена.')
     if len(response.get('homeworks')) == 0:
         logging.info('Список работ пустой или работу еще не взяли на проверку')
-        return []
-    else:
-        return response['homeworks']
+    return response['homeworks']
 
 
 def parse_status(homework):
     """Проверяем статус домашнего задания."""
-    homework_name = homework['homework_name']
-    homework_status = homework['status']
-    try:
-        verdict = HOMEWORK_STATUSES[homework_status]
-    except Exception as error:
-        raise exceptions.HomeWorkStatus(f'{error}')
+    logging.info('Начинаем проверку статуса домашнего задания.')
+    if homework.get('homework_name') is None:
+        raise exceptions.NoDictKey(
+            'В ответе API отсутствует необходимый ключ "homework_name"!'
+        )
+    else:
+        homework_name = homework['homework_name']
+    if homework.get('status') is None:
+        raise exceptions.NoDictKey(
+            'В ответе API отсутствует необходимый ключ "status"!'
+        )
+    else:
+        homework_status = homework['status']
+    if HOMEWORK_VERDICTS.get(homework_status) is None:
+        raise exceptions.NoDictKey(
+            f'В словаре "HOMEWORK_VERDICTS" не найден ключ {homework_status}!'
+        )
+    else:
+        verdict = HOMEWORK_VERDICTS[homework_status]
+    logging.info('Окончание проверки статуса домашнего задания.')
     return f'Изменился статус проверки работы "{homework_name}". {verdict}'
 
 
 def check_tokens() -> bool:
     """Проверяем наличие всех необходимых переменных окружения."""
     return all(
-        (
-            PRACTICUM_TOKEN,
-            TELEGRAM_TOKEN,
-            TELEGRAM_CHAT_ID
-        )
+        PRACTICUM_TOKEN,
+        TELEGRAM_TOKEN,
+        TELEGRAM_CHAT_ID
     )
 
 
@@ -132,11 +150,14 @@ def main() -> None:
                 message = parse_status(work)
                 try:
                     send_message(bot, message)
-                except exceptions.TelegramError as error:
+                except Exception as error:
                     logging.error(
                         f'Не удалось отправить сообщение {message} '
                         f'пользователю {TELEGRAM_CHAT_ID}. '
                         f'Ошибка: {error}'
+                    )
+                    raise telegram.error.TelegramError(
+                        f'Ошибка при отправке сообщения в Telegram: {error}'
                     )
                 else:
                     logging.info(
@@ -145,7 +166,6 @@ def main() -> None:
                         f'успешно отправлено.'
                     )
             current_timestamp = response['current_date']
-            time.sleep(RETRY_TIME)
 
         except Exception as error:
             message = 'Сбой в работе программы: ', error
@@ -153,6 +173,8 @@ def main() -> None:
             if message != previous_error:
                 send_message(bot, message)
                 previous_error = message
+
+        finally:
             time.sleep(RETRY_TIME)
 
 

@@ -2,7 +2,11 @@ class HomeWorkStatus(Exception):
     pass
 
 
-class NoTokens(Exception):
+class NoDictKey(Exception):
+    pass
+
+
+class ConnectionError(Exception):
     pass
 
 
