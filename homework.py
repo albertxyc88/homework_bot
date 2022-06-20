@@ -17,7 +17,7 @@ PRACTICUM_TOKEN = os.getenv('PRACTICUM_TOKEN')
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
 TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 
-RETRY_TIME = 10
+RETRY_TIME = 600
 ENDPOINT = 'https://practicum.yandex.ru/api/user_api/homework_statuses/'
 HEADERS = {'Authorization': f'OAuth {PRACTICUM_TOKEN}'}
 
@@ -103,6 +103,7 @@ def check_response(response):
             'В ответе API в ключе "homeworks" нет списка: '
             f'response = {response.get("homeworks")}'
         )
+    logging.info(response['homeworks'])
     logging.info('Проверка ответа от API завершена.')
     if len(response.get('homeworks')) == 0:
         logging.info('Список работ пустой или работу еще не взяли на проверку')
@@ -154,14 +155,16 @@ def main() -> None:
         sys.exit(error_message)
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
     logging.info('Запуск бота')
-    current_timestamp = int(time.time())
+    current_timestamp = '0' # int(time.time())
     while True:
         try:
             response = get_api_answer(current_timestamp)
             homeworks = check_response(response)
-            for work in homeworks:
-                message = parse_status(work)
-            send_message(bot, message)
+            if len(homeworks) > 0:
+                for work in homeworks:
+                    print(work)
+                    message = parse_status(work)
+                    send_message(bot, message)
             current_timestamp = response['current_date']
 
         except Exception as error:
