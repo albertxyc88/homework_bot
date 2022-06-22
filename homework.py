@@ -155,7 +155,7 @@ def main() -> None:
         sys.exit(error_message)
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
     logging.info('Запуск бота')
-    current_timestamp = '0' # int(time.time())
+    current_timestamp = int(time.time())
     while True:
         try:
             response = get_api_answer(current_timestamp)
